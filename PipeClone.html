@@ -1,0 +1,1437 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-gray-900">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Piped Viewer - Ad-Free YouTube</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            primary: {
+              50: '#f0f9ff',
+              100: '#e0f2fe',
+              200: '#bae6fd',
+              300: '#7dd3fc',
+              400: '#38bdf8',
+              500: '#0ea5e9',
+              600: '#0284c7',
+              700: '#0369a1',
+              800: '#075985',
+              900: '#0c4a6e',
+            },
+            dark: {
+              900: '#0f172a',
+              800: '#1e293b',
+              700: '#334155',
+              600: '#475569',
+              500: '#64748b',
+            }
+          },
+          animation: {
+            'fade-in': 'fadeIn 0.3s ease-in-out',
+            'slide-up': 'slideUp 0.3s ease-out',
+            'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+          },
+          keyframes: {
+            fadeIn: {
+              '0%': { opacity: '0' },
+              '100%': { opacity: '1' },
+            },
+            slideUp: {
+              '0%': { transform: 'translateY(20px)', opacity: '0' },
+              '100%': { transform: 'translateY(0)', opacity: '1' },
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    
+    body {
+      font-family: 'Inter', sans-serif;
+      scroll-behavior: smooth;
+    }
+    
+    .glassmorphism {
+      background: rgba(15, 23, 42, 0.7);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .video-card:hover .video-thumbnail {
+      transform: scale(1.03);
+      transition: transform 0.3s ease;
+    }
+    
+    .video-thumbnail {
+      transition: transform 0.3s ease;
+    }
+    
+    .progress-bar {
+      height: 3px;
+      background-color: #0ea5e9;
+      transform-origin: left;
+      transform: scaleX(0);
+      transition: transform 0.1s linear;
+    }
+    
+    .player-controls {
+      transition: opacity 0.3s ease;
+    }
+    
+    .video-container:hover .player-controls {
+      opacity: 1;
+    }
+    
+    /* Hide scrollbar but keep functionality */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    
+    .rotate-3d {
+      transform-style: preserve-3d;
+      perspective: 1000px;
+    }
+    
+    .rotate-3d:hover {
+      transform: rotateY(10deg) rotateX(5deg);
+      transition: transform 0.5s ease;
+    }
+    
+    .comment-box {
+      transition: all 0.3s ease;
+    }
+    
+    .comment-box:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    }
+  </style>
+</head>
+<body class="h-full text-gray-100">
+  <div id="app" class="flex flex-col min-h-screen">
+    <!-- Navigation Bar -->
+    <header class="glassmorphism sticky top-0 z-50">
+      <div class="container mx-auto px-4 py-3 flex items-center justify-between">
+        <div class="flex items-center space-x-4">
+          <button @click="toggleSidebar" class="p-2 rounded-full hover:bg-gray-700">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+          <a href="#" @click.prevent="goHome" class="flex items-center space-x-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-primary-500" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />
+            </svg>
+            <span class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary-400 to-primary-600">PipedViewer</span>
+          </a>
+        </div>
+        
+        <div class="flex-1 max-w-2xl mx-4">
+          <div class="relative">
+            <form @submit.prevent="searchVideos" class="flex">
+              <input v-model="searchQuery" type="text" placeholder="Search" class="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-l-full focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+              <button type="submit" class="px-6 py-2 bg-gray-700 text-gray-300 rounded-r-full hover:bg-gray-600 focus:outline-none">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </button>
+            </form>
+            <div v-if="searchSuggestions.length > 0 && searchQuery" class="absolute z-10 mt-1 w-full bg-gray-800 rounded-lg shadow-lg border border-gray-700 max-h-80 overflow-y-auto">
+              <div v-for="suggestion in searchSuggestions" :key="suggestion" @click="selectSuggestion(suggestion)" class="px-4 py-2 hover:bg-gray-700 cursor-pointer">
+                {{ suggestion }}
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="flex items-center space-x-3">
+          <button v-if="!user" @click="showLoginModal = true" class="px-4 py-2 bg-primary-600 hover:bg-primary-700 rounded-full font-medium transition-colors">
+            Sign In
+          </button>
+          
+          <div v-else class="flex items-center space-x-3">
+            <button @click="showUploadModal = true" class="p-2 rounded-full hover:bg-gray-700">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+            </button>
+            
+            <div class="relative">
+              <button @click="showNotifications = !showNotifications" class="p-2 rounded-full hover:bg-gray-700 relative">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                </svg>
+                <span v-if="notifications.length > 0" class="absolute top-0 right-0 h-2 w-2 rounded-full bg-red-500"></span>
+              </button>
+              
+              <div v-if="showNotifications" class="absolute right-0 mt-2 w-80 bg-gray-800 rounded-lg shadow-lg border border-gray-700 z-50 max-h-96 overflow-y-auto">
+                <div class="p-3 border-b border-gray-700 flex justify-between items-center">
+                  <h3 class="font-medium">Notifications</h3>
+                  <button @click="markAllAsRead" class="text-sm text-primary-500 hover:underline">Mark all as read</button>
+                </div>
+                <div v-if="notifications.length > 0">
+                  <div v-for="notification in notifications" :key="notification.id" class="p-3 border-b border-gray-700 hover:bg-gray-700 cursor-pointer">
+                    <div class="flex items-start space-x-2">
+                      <div class="flex-shrink-0">
+                        <div class="h-8 w-8 rounded-full bg-gray-600 flex items-center justify-center">
+                          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                          </svg>
+                        </div>
+                      </div>
+                      <div>
+                        <p class="text-sm">{{ notification.message }}</p>
+                        <p class="text-xs text-gray-400 mt-1">{{ formatTime(notification.time) }}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div v-else class="p-4 text-center text-gray-400">
+                  No new notifications
+                </div>
+              </div>
+            </div>
+            
+            <div class="relative">
+              <button @click="showUserMenu = !showUserMenu" class="flex items-center space-x-1 focus:outline-none">
+                <div class="h-8 w-8 rounded-full bg-gradient-to-r from-primary-500 to-primary-700 flex items-center justify-center text-white font-medium">
+                  {{ userInitials }}
+                </div>
+              </button>
+              
+              <div v-if="showUserMenu" class="absolute right-0 mt-2 w-48 bg-gray-800 rounded-lg shadow-lg border border-gray-700 z-50">
+                <div class="p-3 border-b border-gray-700">
+                  <p class="font-medium">{{ user.name }}</p>
+                  <p class="text-sm text-gray-400">{{ user.email }}</p>
+                </div>
+                <div class="py-1">
+                  <a href="#" @click.prevent="goToChannel" class="block px-3 py-2 text-sm hover:bg-gray-700">Your channel</a>
+                  <a href="#" @click.prevent="goToLibrary" class="block px-3 py-2 text-sm hover:bg-gray-700">Library</a>
+                  <a href="#" @click.prevent="showSettingsModal = true" class="block px-3 py-2 text-sm hover:bg-gray-700">Settings</a>
+                  <a href="#" @click.prevent="logout" class="block px-3 py-2 text-sm hover:bg-gray-700">Sign out</a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+    
+    <!-- Main Content -->
+    <main class="flex flex-1 overflow-hidden">
+      <!-- Sidebar -->
+      <aside :class="{'translate-x-0': sidebarOpen, '-translate-x-full': !sidebarOpen}" class="fixed inset-y-0 left-0 z-40 w-64 bg-gray-800 transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-auto lg:z-auto overflow-y-auto no-scrollbar">
+        <div class="p-4">
+          <div class="space-y-1">
+            <a href="#" @click.prevent="goHome" class="flex items-center px-3 py-2 text-sm font-medium rounded-lg bg-gray-700 text-white">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+              </svg>
+              Home
+            </a>
+            
+            <a href="#" @click.prevent="changeCategory('trending')" class="flex items-center px-3 py-2 text-sm font-medium rounded-lg hover:bg-gray-700 text-gray-300 hover:text-white">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+              </svg>
+              Trending
+            </a>
+            
+            <a href="#" @click.prevent="goToSubscriptions" class="flex items-center px-3 py-2 text-sm font-medium rounded-lg hover:bg-gray-700 text-gray-300 hover:text-white">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+              </svg>
+              Subscriptions
+            </a>
+          </div>
+          
+          <div class="mt-8">
+            <h3 class="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Library</h3>
+            <div class="mt-1 space-y-1">
+              <a href="#" @click.prevent="goToHistory" class="flex items-center px-3 py-2 text-sm font-medium rounded-lg hover:bg-gray-700 text-gray-300 hover:text-white">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                History
+              </a>
+              
+              <a href="#" @click.prevent="goToLikedVideos" class="flex items-center px-3 py-2 text-sm font-medium rounded-lg hover:bg-gray-700 text-gray-300 hover:text-white">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                </svg>
+                Liked videos
+              </a>
+              
+              <a href="#" @click.prevent="goToSavedVideos" class="flex items-center px-3 py-2 text-sm font-medium rounded-lg hover:bg-gray-700 text-gray-300 hover:text-white">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                </svg>
+                Saved videos
+              </a>
+            </div>
+          </div>
+          
+          <div class="mt-8">
+            <h3 class="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Categories</h3>
+            <div class="mt-1 space-y-1">
+              <a href="#" @click.prevent="changeCategory('music')" class="flex items-center px-3 py-2 text-sm font-medium rounded-lg hover:bg-gray-700 text-gray-300 hover:text-white">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                </svg>
+                Music
+              </a>
+              
+              <a href="#" @click.prevent="changeCategory('gaming')" class="flex items-center px-3 py-2 text-sm font-medium rounded-lg hover:bg-gray-700 text-gray-300 hover:text-white">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+                </svg>
+                Gaming
+              </a>
+              
+              <a href="#" @click.prevent="changeCategory('news')" class="flex items-center px-3 py-2 text-sm font-medium rounded-lg hover:bg-gray-700 text-gray-300 hover:text-white">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
+                </svg>
+                News
+              </a>
+              
+              <a href="#" @click.prevent="changeCategory('learning')" class="flex items-center px-3 py-2 text-sm font-medium rounded-lg hover:bg-gray-700 text-gray-300 hover:text-white">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                </svg>
+                Learning
+              </a>
+              
+              <a href="#" @click.prevent="changeCategory('anime')" class="flex items-center px-3 py-2 text-sm font-medium rounded-lg hover:bg-gray-700 text-gray-300 hover:text-white">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Anime
+              </a>
+            </div>
+          </div>
+        </div>
+      </aside>
+      
+      <!-- Overlay for mobile sidebar -->
+      <div v-if="sidebarOpen" @click="toggleSidebar" class="fixed inset-0 z-30 bg-black bg-opacity-50 lg:hidden"></div>
+      
+      <!-- Page Content -->
+      <div class="flex-1 overflow-y-auto">
+        <!-- Video Player (shown when watching a video) -->
+        <div v-if="currentView === 'watch'" class="bg-black">
+          <div class="relative pt-[56.25%]">
+            <video 
+              ref="videoPlayer" 
+              @timeupdate="updateProgress" 
+              @play="onPlay" 
+              @pause="onPause" 
+              @ended="onVideoEnded"
+              class="absolute inset-0 w-full h-full"
+              :poster="currentVideo.thumbnail"
+              controls
+            >
+              <source :src="currentVideoStream.url" :type="currentVideoStream.mimeType">
+              Your browser does not support the video tag.
+            </video>
+            
+            <!-- Custom controls -->
+            <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black to-transparent p-4">
+              <div class="flex items-center space-x-4">
+                <button @click="togglePlay" class="text-white hover:text-primary-400">
+                  <svg v-if="isPlaying" xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </button>
+                
+                <div class="flex-1">
+                  <div class="h-1 bg-gray-600 rounded-full">
+                    <div class="h-1 bg-primary-500 rounded-full" :style="{ width: progress + '%' }"></div>
+                  </div>
+                </div>
+                
+                <div class="text-white text-sm">
+                  {{ formatTime(currentTime) }} / {{ formatTime(duration) }}
+                </div>
+                
+                <button @click="toggleMute" class="text-white hover:text-primary-400">
+                  <svg v-if="isMuted" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" clip-rule="evenodd" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+                  </svg>
+                  <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072M12 6a7.975 7.975 0 015.657 2.343m0 0a7.975 7.975 0 010 11.314m-11.314 0a7.975 7.975 0 010-11.314m0 0a7.975 7.975 0 015.657-2.343" />
+                  </svg>
+                </button>
+                
+                <div class="relative">
+                  <button @click="showSettings = !showSettings" class="text-white hover:text-primary-400">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                  </button>
+                  
+                  <div v-if="showSettings" class="absolute right-0 bottom-full mb-2 w-48 bg-gray-800 rounded-lg shadow-lg border border-gray-700 z-50">
+                    <div class="py-1">
+                      <div class="px-3 py-2 text-sm border-b border-gray-700">Quality</div>
+                      <div v-for="stream in availableStreams" :key="stream.quality" @click="changeQuality(stream)" class="px-3 py-2 text-sm hover:bg-gray-700 cursor-pointer">
+                        {{ stream.quality }}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <button @click="toggleFullscreen" class="text-white hover:text-primary-400">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+          
+          <div class="container mx-auto px-4 py-6">
+            <div class="flex flex-col lg:flex-row gap-6">
+              <!-- Video info and actions -->
+              <div class="lg:w-2/3">
+                <h1 class="text-2xl font-bold">{{ currentVideo.title }}</h1>
+                
+                <div class="flex items-center justify-between mt-4">
+                  <div class="flex items-center space-x-4">
+                    <div class="h-10 w-10 rounded-full bg-gray-600 flex items-center justify-center">
+                      <span class="text-lg font-medium">{{ currentVideo.uploader.charAt(0) }}</span>
+                    </div>
+                    <div>
+                      <p class="font-medium">{{ currentVideo.uploader }}</p>
+                      <p class="text-sm text-gray-400">{{ formatNumber(currentVideo.views) }} views • {{ formatDate(currentVideo.uploadDate) }}</p>
+                    </div>
+                  </div>
+                  
+                  <div class="flex items-center space-x-2">
+                    <button @click="toggleLike" class="flex items-center space-x-1 px-3 py-2 rounded-full hover:bg-gray-700">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" :class="{ 'text-primary-500 fill-current': isLiked }" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
+                      </svg>
+                      <span>{{ formatNumber(currentVideo.likes) }}</span>
+                    </button>
+                    
+                    <button @click="toggleDislike" class="flex items-center space-x-1 px-3 py-2 rounded-full hover:bg-gray-700">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" :class="{ 'text-red-500 fill-current': isDisliked }" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14H5.236a2 2 0 01-1.789-2.894l3.5-7A2 2 0 018.736 3h4.018c.163 0 .326.02.485.06L17 4m0 0v9m0-9h2.765a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 13H9m5-9v9m0 0h-2.5M17 13H9" />
+                      </svg>
+                    </button>
+                    
+                    <button @click="toggleSave" class="flex items-center space-x-1 px-3 py-2 rounded-full hover:bg-gray-700">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" :class="{ 'text-primary-500 fill-current': isSaved }" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                      </svg>
+                      <span>Save</span>
+                    </button>
+                    
+                    <button @click="shareVideo" class="flex items-center space-x-1 px-3 py-2 rounded-full hover:bg-gray-700">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                      </svg>
+                      <span>Share</span>
+                    </button>
+                    
+                    <button @click="downloadVideo" class="flex items-center space-x-1 px-3 py-2 rounded-full hover:bg-gray-700">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                      </svg>
+                      <span>Download</span>
+                    </button>
+                  </div>
+                </div>
+                
+                <!-- Video description -->
+                <div class="mt-6 p-4 bg-gray-800 rounded-lg">
+                  <div class="flex items-center space-x-4">
+                    <span class="text-sm font-medium">{{ formatNumber(currentVideo.views) }} views</span>
+                    <span class="text-sm text-gray-400">{{ formatDate(currentVideo.uploadDate) }}</span>
+                  </div>
+                  <p class="mt-2 whitespace-pre-line">{{ currentVideo.description }}</p>
+                </div>
+                
+                <!-- Comments -->
+                <div class="mt-8">
+                  <h3 class="text-xl font-bold mb-4">{{ formatNumber(comments.length) }} Comments</h3>
+                  
+                  <div v-if="user" class="flex items-start space-x-3 mb-6">
+                    <div class="h-10 w-10 rounded-full bg-gray-600 flex-shrink-0 flex items-center justify-center">
+                      <span class="text-lg font-medium">{{ userInitials }}</span>
+                    </div>
+                    <div class="flex-1">
+                      <textarea v-model="newComment" placeholder="Add a comment..." class="w-full bg-transparent border-b border-gray-700 pb-2 focus:outline-none focus:border-primary-500"></textarea>
+                      <div class="flex justify-end space-x-2 mt-2">
+                        <button @click="newComment = ''" class="px-4 py-2 text-sm rounded-full hover:bg-gray-700">Cancel</button>
+                        <button @click="postComment" class="px-4 py-2 text-sm bg-primary-600 hover:bg-primary-700 rounded-full">Comment</button>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div v-else class="mb-6 p-4 bg-gray-800 rounded-lg text-center">
+                    <p class="mb-2">Want to comment on this video?</p>
+                    <button @click="showLoginModal = true" class="px-4 py-2 bg-primary-600 hover:bg-primary-700 rounded-full text-sm">Sign in</button>
+                  </div>
+                  
+                  <div class="space-y-6">
+                    <div v-for="comment in comments" :key="comment.commentId" class="comment-box flex items-start space-x-3 p-3 rounded-lg hover:bg-gray-800">
+                      <div class="h-10 w-10 rounded-full bg-gray-600 flex-shrink-0 flex items-center justify-center">
+                        <span class="text-lg font-medium">{{ comment.author.charAt(0) }}</span>
+                      </div>
+                      <div class="flex-1">
+                        <div class="flex items-center space-x-2">
+                          <p class="font-medium">{{ comment.author }}</p>
+                          <p class="text-sm text-gray-400">{{ formatTimeAgo(comment.commentedTime) }}</p>
+                        </div>
+                        <p class="mt-1">{{ comment.commentText }}</p>
+                        <div class="flex items-center space-x-4 mt-2">
+                          <button class="flex items-center space-x-1 text-sm text-gray-400 hover:text-white">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
+                            </svg>
+                            <span>{{ formatNumber(comment.likeCount) }}</span>
+                          </button>
+                          <button class="text-sm text-gray-400 hover:text-white">Reply</button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Recommended videos -->
+              <div class="lg:w-1/3">
+                <div class="space-y-4">
+                  <h3 class="text-lg font-bold">Up next</h3>
+                  
+                  <div v-for="video in recommendedVideos" :key="video.videoId" @click="watchVideo(video)" class="flex items-start space-x-2 cursor-pointer group">
+                    <div class="relative flex-shrink-0">
+                      <img :src="video.thumbnail" :alt="video.title" class="w-40 h-24 object-cover rounded-lg">
+                      <span class="absolute bottom-1 right-1 bg-black bg-opacity-80 px-1 text-xs rounded">{{ formatDuration(video.duration) }}</span>
+                    </div>
+                    <div>
+                      <h4 class="font-medium group-hover:text-primary-400 line-clamp-2">{{ video.title }}</h4>
+                      <p class="text-sm text-gray-400">{{ video.uploader }}</p>
+                      <p class="text-xs text-gray-400">{{ formatNumber(video.views) }} views • {{ formatTimeAgo(video.uploaded) }}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Home/Feed View -->
+        <div v-else class="container mx-auto px-4 py-6">
+          <!-- Categories -->
+          <div class="flex items-center space-x-2 overflow-x-auto pb-4 no-scrollbar">
+            <button 
+              v-for="category in categories" 
+              :key="category.id" 
+              @click="changeCategory(category.id)" 
+              :class="{ 'bg-primary-600 text-white': selectedCategory === category.id, 'bg-gray-800 text-gray-300 hover:bg-gray-700': selectedCategory !== category.id }"
+              class="px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap"
+            >
+              {{ category.name }}
+            </button>
+          </div>
+          
+          <!-- Videos Grid -->
+          <div v-if="videos.length > 0" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mt-6">
+            <div 
+              v-for="video in videos" 
+              :key="video.videoId" 
+              @click="watchVideo(video)" 
+              class="video-card bg-gray-800 rounded-lg overflow-hidden cursor-pointer transform hover:-translate-y-1 transition-transform duration-200"
+            >
+              <div class="relative">
+                <img :src="video.thumbnail" :alt="video.title" class="video-thumbnail w-full h-48 object-cover">
+                <span class="absolute bottom-2 right-2 bg-black bg-opacity-80 px-1 text-xs rounded">{{ formatDuration(video.duration) }}</span>
+              </div>
+              <div class="p-3">
+                <div class="flex space-x-3">
+                  <div class="flex-shrink-0">
+                    <div class="h-9 w-9 rounded-full bg-gray-600 flex items-center justify-center">
+                      <span class="text-sm font-medium">{{ video.uploader.charAt(0) }}</span>
+                    </div>
+                  </div>
+                  <div>
+                    <h3 class="font-medium line-clamp-2">{{ video.title }}</h3>
+                    <p class="text-sm text-gray-400 mt-1">{{ video.uploader }}</p>
+                    <p class="text-xs text-gray-400">{{ formatNumber(video.views) }} views • {{ formatTimeAgo(video.uploaded) }}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Loading indicator -->
+          <div v-if="loading" class="flex justify-center py-8">
+            <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-500"></div>
+          </div>
+          
+          <!-- End of results -->
+          <div v-if="!loading && videos.length > 0 && !hasMore" class="text-center py-8 text-gray-400">
+            You've reached the end
+          </div>
+        </div>
+      </div>
+    </main>
+    
+    <!-- Login Modal -->
+    <div v-if="showLoginModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70">
+      <div class="bg-gray-800 rounded-xl w-full max-w-md mx-4 overflow-hidden glassmorphism">
+        <div class="p-6">
+          <div class="flex justify-between items-center mb-4">
+            <h2 class="text-2xl font-bold">Sign in</h2>
+            <button @click="showLoginModal = false" class="text-gray-400 hover:text-white">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          
+          <div v-if="loginError" class="mb-4 p-3 bg-red-900 text-red-200 rounded-lg text-sm">
+            {{ loginError }}
+          </div>
+          
+          <form @submit.prevent="login">
+            <div class="space-y-4">
+              <div>
+                <label for="email" class="block text-sm font-medium mb-1">Email</label>
+                <input v-model="loginEmail" type="email" id="email" required class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+              </div>
+              
+              <div>
+                <label for="password" class="block text-sm font-medium mb-1">Password</label>
+                <input v-model="loginPassword" type="password" id="password" required class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+              </div>
+              
+              <button type="submit" class="w-full py-2 bg-primary-600 hover:bg-primary-700 rounded-lg font-medium transition-colors">
+                Sign in
+              </button>
+            </div>
+          </form>
+          
+          <div class="mt-4 text-center text-sm text-gray-400">
+            Don't have an account? 
+            <button @click="showRegisterModal = true; showLoginModal = false" class="text-primary-500 hover:underline">Sign up</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Register Modal -->
+    <div v-if="showRegisterModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70">
+      <div class="bg-gray-800 rounded-xl w-full max-w-md mx-4 overflow-hidden glassmorphism">
+        <div class="p-6">
+          <div class="flex justify-between items-center mb-4">
+            <h2 class="text-2xl font-bold">Create account</h2>
+            <button @click="showRegisterModal = false" class="text-gray-400 hover:text-white">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          
+          <div v-if="registerError" class="mb-4 p-3 bg-red-900 text-red-200 rounded-lg text-sm">
+            {{ registerError }}
+          </div>
+          
+          <form @submit.prevent="register">
+            <div class="space-y-4">
+              <div>
+                <label for="reg-name" class="block text-sm font-medium mb-1">Name</label>
+                <input v-model="registerName" type="text" id="reg-name" required class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+              </div>
+              
+              <div>
+                <label for="reg-email" class="block text-sm font-medium mb-1">Email</label>
+                <input v-model="registerEmail" type="email" id="reg-email" required class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+              </div>
+              
+              <div>
+                <label for="reg-password" class="block text-sm font-medium mb-1">Password</label>
+                <input v-model="registerPassword" type="password" id="reg-password" required class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+              </div>
+              
+              <button type="submit" class="w-full py-2 bg-primary-600 hover:bg-primary-700 rounded-lg font-medium transition-colors">
+                Create account
+              </button>
+            </div>
+          </form>
+          
+          <div class="mt-4 text-center text-sm text-gray-400">
+            Already have an account? 
+            <button @click="showLoginModal = true; showRegisterModal = false" class="text-primary-500 hover:underline">Sign in</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Settings Modal -->
+    <div v-if="showSettingsModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70">
+      <div class="bg-gray-800 rounded-xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto glassmorphism">
+        <div class="p-6">
+          <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold">Settings</h2>
+            <button @click="showSettingsModal = false" class="text-gray-400 hover:text-white">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          
+          <div class="space-y-6">
+            <div>
+              <h3 class="text-lg font-medium mb-4">Account</h3>
+              <div class="space-y-4">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <p class="font-medium">{{ user.name }}</p>
+                    <p class="text-sm text-gray-400">{{ user.email }}</p>
+                  </div>
+                  <button @click="logout" class="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-sm">Sign out</button>
+                </div>
+              </div>
+            </div>
+            
+            <div>
+              <h3 class="text-lg font-medium mb-4">Appearance</h3>
+              <div class="space-y-4">
+                <div class="flex items-center justify-between">
+                  <span>Dark mode</span>
+                  <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" v-model="darkMode" class="sr-only peer">
+                    <div class="w-11 h-6 bg-gray-700 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+                  </label>
+                </div>
+                
+                <div class="flex items-center justify-between">
+                  <span>Default quality</span>
+                  <select v-model="defaultQuality" class="bg-gray-700 border border-gray-600 rounded-lg px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                    <option value="1080">1080p</option>
+                    <option value="720">720p</option>
+                    <option value="480">480p</option>
+                    <option value="360">360p</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            
+            <div>
+              <h3 class="text-lg font-medium mb-4">About</h3>
+              <div class="space-y-2 text-sm text-gray-400">
+                <p>PipedViewer v1.0.0</p>
+                <p>Using Piped API for ad-free YouTube experience</p>
+                <p>&copy; 2023 PipedViewer. All rights reserved.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Share Modal -->
+    <div v-if="showShareModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70">
+      <div class="bg-gray-800 rounded-xl w-full max-w-md mx-4 overflow-hidden glassmorphism">
+        <div class="p-6">
+          <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-bold">Share</h2>
+            <button @click="showShareModal = false" class="text-gray-400 hover:text-white">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          
+          <div class="mb-4">
+            <div class="flex items-center space-x-2 p-3 bg-gray-700 rounded-lg">
+              <input ref="shareLink" type="text" :value="shareUrl" readonly class="flex-1 bg-transparent focus:outline-none">
+              <button @click="copyShareLink" class="px-3 py-1 bg-primary-600 hover:bg-primary-700 rounded-lg text-sm">
+                Copy
+              </button>
+            </div>
+          </div>
+          
+          <div class="flex justify-center space-x-6 py-4">
+            <button @click="shareOnSocial('facebook')" class="p-3 rounded-full bg-blue-600 hover:bg-blue-700">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M22.675 0h-21.35c-.732 0-1.325.593-1.325 1.325v21.351c0 .731.593 1.324 1.325 1.324h11.495v-9.294h-3.128v-3.622h3.128v-2.671c0-3.1 1.893-4.788 4.659-4.788 1.325 0 2.463.099 2.795.143v3.24l-1.918.001c-1.504 0-1.795.715-1.795 1.763v2.313h3.587l-.467 3.622h-3.12v9.293h6.116c.73 0 1.323-.593 1.323-1.325v-21.35c0-.732-.593-1.325-1.325-1.325z" />
+              </svg>
+            </button>
+            
+            <button @click="shareOnSocial('twitter')" class="p-3 rounded-full bg-blue-400 hover:bg-blue-500">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z" />
+              </svg>
+            </button>
+            
+            <button @click="shareOnSocial('whatsapp')" class="p-3 rounded-full bg-green-500 hover:bg-green-600">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.479 5.392 1.479 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z" />
+              </svg>
+            </button>
+            
+            <button @click="shareOnSocial('reddit')" class="p-3 rounded-full bg-orange-500 hover:bg-orange-600">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M24 11.779c0-1.459-1.192-2.645-2.657-2.645-.715 0-1.363.29-1.84.756-1.814-1.191-4.259-1.949-6.971-2.036l1.483-4.674 4.039.941.024.568c0 .784.642 1.422 1.426 1.422.785 0 1.424-.638 1.424-1.422s-.639-1.422-1.424-1.422l-4.476-.042-1.725-4.076c-.135-.319-.449-.536-.8-.536s-.665.217-.8.536l-1.72 4.076-4.483.042c-.785 0-1.424.638-1.424 1.422 0 .784.639 1.422 1.424 1.422.784 0 1.426-.638 1.426-1.422l.024-.568 4.039-.941 1.48 4.674c-2.712.087-5.154.845-6.968 2.036-.477-.466-1.125-.756-1.84-.756-1.465 0-2.657 1.186-2.657 2.645 0 .971.524 1.818 1.296 2.292-.039.212-.059.427-.059.645 0 3.012 3.437 5.458 7.668 5.458 4.231 0 7.668-2.446 7.668-5.458 0-.218-.02-.433-.059-.645.772-.474 1.296-1.321 1.296-2.292zm-17.247.992c0-.716.584-1.299 1.299-1.299.716 0 1.299.583 1.299 1.299 0 .715-.583 1.299-1.299 1.299-.715 0-1.299-.584-1.299-1.299zm9.335 3.908c-.868.868-2.539.907-2.876.907-.338 0-2.008-.039-2.876-.907-.344-.344-.344-.901 0-1.246.343-.344.901-.344 1.246 0 .449.449 1.229.516 1.63.516.402 0 1.182-.067 1.63-.516.344-.344.902-.344 1.246 0 .344.345.344.902 0 1.246zm-.254-2.609c-.715 0-1.299-.584-1.299-1.299 0-.716.584-1.299 1.299-1.299.716 0 1.299.583 1.299 1.299 0 .715-.583 1.299-1.299 1.299z" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const app = {
+        data() {
+          return {
+            // App state
+            currentView: 'home',
+            sidebarOpen: false,
+            loading: false,
+            hasMore: true,
+            nextPageToken: null,
+            
+            // User state
+            user: null,
+            showUserMenu: false,
+            showNotifications: false,
+            notifications: [
+              { id: 1, message: 'New video from your subscription', time: '2023-05-15T10:30:00Z' },
+              { id: 2, message: 'Your video got 10 new likes', time: '2023-05-14T18:45:00Z' }
+            ],
+            
+            // Auth modals
+            showLoginModal: false,
+            showRegisterModal: false,
+            showSettingsModal: false,
+            showShareModal: false,
+            
+            // Auth form data
+            loginEmail: '',
+            loginPassword: '',
+            loginError: '',
+            registerName: '',
+            registerEmail: '',
+            registerPassword: '',
+            registerError: '',
+            
+            // Search
+            searchQuery: '',
+            searchSuggestions: [],
+            
+            // Categories
+            categories: [
+              { id: 'all', name: 'All' },
+              { id: 'trending', name: 'Trending' },
+              { id: 'music', name: 'Music' },
+              { id: 'gaming', name: 'Gaming' },
+              { id: 'news', name: 'News' },
+              { id: 'learning', name: 'Learning' },
+              { id: 'anime', name: 'Anime' },
+              { id: 'creative', name: 'Creative' }
+            ],
+            selectedCategory: 'all',
+            
+            // Videos
+            videos: [],
+            currentVideo: null,
+            currentVideoStream: null,
+            availableStreams: [],
+            recommendedVideos: [],
+            isPlaying: false,
+            isMuted: false,
+            progress: 0,
+            currentTime: 0,
+            duration: 0,
+            showSettings: false,
+            
+            // Comments
+            comments: [],
+            newComment: '',
+            
+            // User actions
+            isLiked: false,
+            isDisliked: false,
+            isSaved: false,
+            
+            // Settings
+            darkMode: true,
+            defaultQuality: '1080',
+            
+            // Share
+            shareUrl: ''
+          }
+        },
+        
+        computed: {
+          userInitials() {
+            if (!this.user) return '';
+            return this.user.name.split(' ').map(n => n[0]).join('').toUpperCase();
+          }
+        },
+        
+        created() {
+          // Check for saved user session
+          this.checkAuth();
+          
+          // Load initial videos
+          this.loadVideos();
+          
+          // Set up dark mode
+          this.applyDarkMode();
+        },
+        
+        methods: {
+          // Auth methods
+          async checkAuth() {
+            try {
+              const response = await fetch('/api/user', { credentials: 'include' });
+              if (response.ok) {
+                this.user = await response.json();
+              }
+            } catch (error) {
+              console.error('Auth check failed:', error);
+            }
+          },
+          
+          async login() {
+            this.loginError = '';
+            try {
+              const response = await fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  email: this.loginEmail,
+                  password: this.loginPassword
+                }),
+                credentials: 'include'
+              });
+              
+              if (response.ok) {
+                const data = await response.json();
+                this.user = data.user;
+                this.showLoginModal = false;
+                this.loginEmail = '';
+                this.loginPassword = '';
+              } else {
+                const error = await response.json();
+                this.loginError = error.error || 'Login failed';
+              }
+            } catch (error) {
+              this.loginError = 'Network error. Please try again.';
+            }
+          },
+          
+          async register() {
+            this.registerError = '';
+            try {
+              const response = await fetch('/api/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  name: this.registerName,
+                  email: this.registerEmail,
+                  password: this.registerPassword
+                }),
+                credentials: 'include'
+              });
+              
+              if (response.ok) {
+                const data = await response.json();
+                this.user = { id: data.userId, name: this.registerName, email: this.registerEmail };
+                this.showRegisterModal = false;
+                this.registerName = '';
+                this.registerEmail = '';
+                this.registerPassword = '';
+              } else {
+                const error = await response.json();
+                this.registerError = error.error || 'Registration failed';
+              }
+            } catch (error) {
+              this.registerError = 'Network error. Please try again.';
+            }
+          },
+          
+          async logout() {
+            try {
+              await fetch('/api/logout', {
+                method: 'POST',
+                credentials: 'include'
+              });
+              this.user = null;
+              this.showSettingsModal = false;
+            } catch (error) {
+              console.error('Logout failed:', error);
+            }
+          },
+          
+          // UI methods
+          toggleSidebar() {
+            this.sidebarOpen = !this.sidebarOpen;
+          },
+          
+          applyDarkMode() {
+            if (this.darkMode) {
+              document.documentElement.classList.add('dark');
+            } else {
+              document.documentElement.classList.remove('dark');
+            }
+          },
+          
+          markAllAsRead() {
+            this.notifications = [];
+            this.showNotifications = false;
+          },
+          
+          // Video methods
+          async loadVideos() {
+            if (this.loading) return;
+            
+            this.loading = true;
+            try {
+              let url = '/api/trending';
+              if (this.selectedCategory !== 'all' && this.selectedCategory !== 'trending') {
+                url = `/api/search?q=${this.selectedCategory}&filter=${this.selectedCategory}`;
+              }
+              
+              const response = await fetch(url);
+              if (response.ok) {
+                const data = await response.json();
+                this.videos = data;
+              }
+            } catch (error) {
+              console.error('Failed to load videos:', error);
+            } finally {
+              this.loading = false;
+            }
+          },
+          
+          async searchVideos() {
+            if (!this.searchQuery.trim()) return;
+            
+            this.loading = true;
+            try {
+              const response = await fetch(`/api/search?q=${encodeURIComponent(this.searchQuery)}`);
+              if (response.ok) {
+                const data = await response.json();
+                this.videos = data;
+                this.currentView = 'home';
+              }
+            } catch (error) {
+              console.error('Search failed:', error);
+            } finally {
+              this.loading = false;
+            }
+          },
+          
+          async getSearchSuggestions() {
+            if (!this.searchQuery.trim()) {
+              this.searchSuggestions = [];
+              return;
+            }
+            
+            // In a real app, you would fetch these from an API
+            // This is just a mock implementation
+            setTimeout(() => {
+              this.searchSuggestions = [
+                `${this.searchQuery} tutorial`,
+                `${this.searchQuery} 2023`,
+                `${this.searchQuery} review`,
+                `${this.searchQuery} music`,
+                `${this.searchQuery} live`
+              ];
+            }, 300);
+          },
+          
+          selectSuggestion(suggestion) {
+            this.searchQuery = suggestion;
+            this.searchSuggestions = [];
+            this.searchVideos();
+          },
+          
+          changeCategory(category) {
+            this.selectedCategory = category;
+            this.loadVideos();
+            this.sidebarOpen = false;
+          },
+          
+          async watchVideo(video) {
+            this.currentVideo = video;
+            this.currentView = 'watch';
+            
+            try {
+              // Load video streams
+              const streamsResponse = await fetch(`/api/streams/${video.videoId}`);
+              if (streamsResponse.ok) {
+                const streamsData = await streamsResponse.json();
+                this.availableStreams = streamsData.videoStreams;
+                this.currentVideoStream = this.availableStreams.find(s => s.quality === this.defaultQuality + 'p') || this.availableStreams[0];
+                
+                // Load recommended videos
+                const recommendedResponse = await fetch('/api/trending');
+                if (recommendedResponse.ok) {
+                  this.recommendedVideos = (await recommendedResponse.json()).filter(v => v.videoId !== video.videoId).slice(0, 10);
+                }
+                
+                // Load comments
+                const commentsResponse = await fetch(`/api/comments/${video.videoId}`);
+                if (commentsResponse.ok) {
+                  this.comments = await commentsResponse.json();
+                }
+                
+                // Check if video is liked/saved
+                if (this.user) {
+                  const likedResponse = await fetch('/api/liked-videos');
+                  if (likedResponse.ok) {
+                    const likedVideos = await likedResponse.json();
+                    this.isLiked = likedVideos.some(v => v.videoId === video.videoId);
+                  }
+                  
+                  const savedResponse = await fetch('/api/saved-videos');
+                  if (savedResponse.ok) {
+                    const savedVideos = await savedResponse.json();
+                    this.isSaved = savedVideos.some(v => v.videoId === video.videoId);
+                  }
+                }
+              }
+            } catch (error) {
+              console.error('Failed to load video data:', error);
+            }
+          },
+          
+          goHome() {
+            this.currentView = 'home';
+            this.currentVideo = null;
+            this.loadVideos();
+          },
+          
+          // Video player methods
+          togglePlay() {
+            if (this.$refs.videoPlayer.paused) {
+              this.$refs.videoPlayer.play();
+            } else {
+              this.$refs.videoPlayer.pause();
+            }
+          },
+          
+          onPlay() {
+            this.isPlaying = true;
+          },
+          
+          onPause() {
+            this.isPlaying = false;
+          },
+          
+          onVideoEnded() {
+            this.isPlaying = false;
+            // Auto-play next video
+            if (this.recommendedVideos.length > 0) {
+              this.watchVideo(this.recommendedVideos[0]);
+            }
+          },
+          
+          toggleMute() {
+            this.$refs.videoPlayer.muted = !this.$refs.videoPlayer.muted;
+            this.isMuted = this.$refs.videoPlayer.muted;
+          },
+          
+          updateProgress() {
+            this.currentTime = this.$refs.videoPlayer.currentTime;
+            this.duration = this.$refs.videoPlayer.duration;
+            this.progress = (this.currentTime / this.duration) * 100;
+          },
+          
+          changeQuality(stream) {
+            this.currentVideoStream = stream;
+            this.showSettings = false;
+            
+            // In a real app, you would switch the video source
+            // This is a simplified implementation
+            this.$refs.videoPlayer.src = stream.url;
+            this.$refs.videoPlayer.load();
+            this.$refs.videoPlayer.play();
+          },
+          
+          toggleFullscreen() {
+            if (!document.fullscreenElement) {
+              document.documentElement.requestFullscreen();
+            } else {
+              if (document.exitFullscreen) {
+                document.exitFullscreen();
+              }
+            }
+          },
+          
+          // User actions
+          async toggleLike() {
+            if (!this.user) {
+              this.showLoginModal = true;
+              return;
+            }
+            
+            try {
+              if (this.isLiked) {
+                await fetch(`/api/unlike-video/${this.currentVideo.videoId}`, {
+                  method: 'DELETE',
+                  credentials: 'include'
+                });
+                this.isLiked = false;
+                this.currentVideo.likes--;
+              } else {
+                await fetch('/api/like-video', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ videoId: this.currentVideo.videoId }),
+                  credentials: 'include'
+                });
+                this.isLiked = true;
+                this.isDisliked = false;
+                this.currentVideo.likes++;
+              }
+            } catch (error) {
+              console.error('Failed to toggle like:', error);
+            }
+          },
+          
+          toggleDislike() {
+            if (!this.user) {
+              this.showLoginModal = true;
+              return;
+            }
+            
+            // In a real app, you would have a proper dislike implementation
+            this.isDisliked = !this.isDisliked;
+            if (this.isDisliked && this.isLiked) {
+              this.isLiked = false;
+              this.currentVideo.likes--;
+            }
+          },
+          
+          async toggleSave() {
+            if (!this.user) {
+              this.showLoginModal = true;
+              return;
+            }
+            
+            try {
+              if (this.isSaved) {
+                await fetch(`/api/unsave-video/${this.currentVideo.videoId}`, {
+                  method: 'DELETE',
+                  credentials: 'include'
+                });
+                this.isSaved = false;
+              } else {
+                await fetch('/api/save-video', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    videoId: this.currentVideo.videoId,
+                    title: this.currentVideo.title,
+                    thumbnail: this.currentVideo.thumbnail,
+                    channel: this.currentVideo.uploader
+                  }),
+                  credentials: 'include'
+                });
+                this.isSaved = true;
+              }
+            } catch (error) {
+              console.error('Failed to toggle save:', error);
+            }
+          },
+          
+          shareVideo() {
+            this.shareUrl = `${window.location.origin}?v=${this.currentVideo.videoId}`;
+            this.showShareModal = true;
+          },
+          
+          copyShareLink() {
+            this.$refs.shareLink.select();
+            document.execCommand('copy');
+            // Show a tooltip or notification that link was copied
+          },
+          
+          shareOnSocial(platform) {
+            let url = '';
+            const text = `Check out this video: ${this.currentVideo.title}`;
+            
+            switch (platform) {
+              case 'facebook':
+                url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(this.shareUrl)}`;
+                break;
+              case 'twitter':
+                url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(this.shareUrl)}`;
+                break;
+              case 'whatsapp':
+                url = `https://wa.me/?text=${encodeURIComponent(`${text} ${this.shareUrl}`)}`;
+                break;
+              case 'reddit':
+                url = `https://www.reddit.com/submit?url=${encodeURIComponent(this.shareUrl)}&title=${encodeURIComponent(text)}`;
+                break;
+            }
+            
+            window.open(url, '_blank', 'width=600,height=400');
+          },
+          
+          downloadVideo() {
+            if (!this.currentVideoStream) return;
+            
+            // In a real app, you would use a proper download method
+            // This is a simplified implementation
+            const link = document.createElement('a');
+            link.href = this.currentVideoStream.url;
+            link.download = `${this.currentVideo.title}.mp4`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+          },
+          
+          async postComment() {
+            if (!this.user || !this.newComment.trim()) return;
+            
+            // In a real app, you would post the comment to the API
+            // This is a mock implementation
+            this.comments.unshift({
+              commentId: Date.now().toString(),
+              author: this.user.name,
+              commentText: this.newComment,
+              commentedTime: new Date().toISOString(),
+              likeCount: 0
+            });
+            
+            this.newComment = '';
+          },
+          
+          // Navigation methods
+          goToChannel() {
+            // In a real app, navigate to user's channel
+            this.showUserMenu = false;
+          },
+          
+          goToLibrary() {
+            // In a real app, navigate to user's library
+            this.showUserMenu = false;
+          },
+          
+          goToSubscriptions() {
+            // In a real app, navigate to subscriptions
+            this.sidebarOpen = false;
+          },
+          
+          goToHistory() {
+            // In a real app, navigate to watch history
+            this.sidebarOpen = false;
+          },
+          
+          goToLikedVideos() {
+            // In a real app, navigate to liked videos
+            this.sidebarOpen = false;
+          },
+          
+          goToSavedVideos() {
+            // In a real app, navigate to saved videos
+            this.sidebarOpen = false;
+          },
+          
+          // Utility methods
+          formatNumber(num) {
+            if (!num) return '0';
+            return new Intl.NumberFormat().format(num);
+          },
+          
+          formatDate(dateString) {
+            if (!dateString) return '';
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+          },
+          
+          formatTime(seconds) {
+            if (!seconds) return '0:00';
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+          },
+          
+          formatTimeAgo(dateString) {
+            if (!dateString) return '';
+            const date = new Date(dateString);
+            const now = new Date();
+            const diffInSeconds = Math.floor((now - date) / 1000);
+            
+            if (diffInSeconds < 60) return `${diffInSeconds} seconds ago`;
+            if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} minutes ago`;
+            if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} hours ago`;
+            if (diffInSeconds < 2592000) return `${Math.floor(diffInSeconds / 86400)} days ago`;
+            if (diffInSeconds < 31536000) return `${Math.floor(diffInSeconds / 2592000)} months ago`;
+            return `${Math.floor(diffInSeconds / 31536000)} years ago`;
+          },
+          
+          formatDuration(seconds) {
+            if (!seconds) return '0:00';
+            const hours = Math.floor(seconds / 3600);
+            const mins = Math.floor((seconds % 3600) / 60);
+            const secs = Math.floor(seconds % 60);
+            
+            if (hours > 0) {
+              return `${hours}:${mins < 10 ? '0' : ''}${mins}:${secs < 10 ? '0' : ''}${secs}`;
+            } else {
+              return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+            }
+          }
+        },
+        
+        watch: {
+          searchQuery() {
+            this.getSearchSuggestions();
+          },
+          
+          darkMode(newVal) {
+            this.applyDarkMode();
+          },
+          
+          showLoginModal(newVal) {
+            if (!newVal) {
+              this.loginError = '';
+            }
+          },
+          
+          showRegisterModal(newVal) {
+            if (!newVal) {
+              this.registerError = '';
+            }
+          }
+        }
+      };
+      
+      Vue.createApp(app).mount('#app');
+    });
+  </script>
+  
+  <script src="https://unpkg.com/vue@3.2.47/dist/vue.global.js"></script>
+</body>
+</html>
+
